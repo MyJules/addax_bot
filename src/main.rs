@@ -2,23 +2,23 @@ mod commands;
 
 use std::env;
 
+use simplelog::*;
 use simplelog::{ColorChoice, Config, TerminalMode};
 use log::LevelFilter;
+
 use serenity::async_trait;
+use serenity::model::gateway::Ready;
 use serenity::client::{Client, Context, EventHandler};
 use serenity::framework::standard::{
     StandardFramework,
     macros::group
 };
 
-use serenity::model::gateway::Ready;
 use commands::player::*;
 use songbird::{SerenityInit};
 
-use simplelog::*;
-
 #[group]
-#[commands(play, pause)]
+#[commands(play, pause, leave)]
 struct General;
 
 struct Handler;
@@ -29,7 +29,6 @@ impl EventHandler for Handler {
         log::info!("Connected as {}", ready.user.name)
     }
 }
-
 
 #[tokio::main]
 async fn main() {
@@ -45,6 +44,7 @@ async fn main() {
 
     let token = env::var("DISCORD_TOKEN")
         .expect("Expected a token in the environment");
+
 
     // Login with a bot token from the environment
     let mut client = Client::builder(token)
