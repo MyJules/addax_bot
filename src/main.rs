@@ -18,7 +18,7 @@ use commands::player::*;
 use songbird::{SerenityInit};
 
 #[group]
-#[commands(play, pause, leave)]
+#[commands(play, stop, leave)]
 struct General;
 
 struct Handler;
@@ -39,7 +39,7 @@ async fn main() {
     ).unwrap();
 
     let framework = StandardFramework::new()
-        .configure(|c| c.prefix("~"))
+        .configure(|c| c.prefix("'"))
         .group(&GENERAL_GROUP);
 
     let token = env::var("DISCORD_TOKEN")

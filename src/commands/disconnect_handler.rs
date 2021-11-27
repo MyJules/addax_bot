@@ -18,7 +18,7 @@ impl DisconnectHandler {
 
     async fn disconnect_if_no_users(&self){
         let should_disconnect: bool = match self.manager.get(self.guild.id) {
-            Some(_) => {        
+            Some(_) => {
                 let voice_channel = self.guild.channels.get(&self.connected_to).unwrap();
                 let members = voice_channel.members(&self.ctx.cache).await.unwrap();
                 log::info!("Voice members count: {}", members.len());
