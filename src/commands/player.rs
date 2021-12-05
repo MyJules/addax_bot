@@ -3,15 +3,12 @@ use serenity::framework::standard::{macros::command, CommandResult};
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-use crate::commands::connections::{on_play, on_leave};
-
-use super::connections::on_stop;
+use crate::commands::connections::{on_play, on_leave, on_skip, on_pause};
 
 #[command]
 #[aliases("p")]
-#[min_args(1)]
 #[only_in(guilds)]
-pub async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn play(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     log::info!("Play command");
     on_play(ctx, msg, args).await.unwrap();
     Ok(())
@@ -20,9 +17,18 @@ pub async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult
 #[command]
 #[aliases("s")]
 #[only_in(guilds)]
-pub async fn stop(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn skip(ctx: &Context, msg: &Message, _: Args) -> CommandResult {
+    log::info!("Skip command");
+    on_skip(ctx, msg).await.unwrap();
+    Ok(())
+}
+
+#[command]
+#[aliases("ps")]
+#[only_in(guilds)]
+pub async fn pause(ctx: &Context, msg: &Message) -> CommandResult {
     log::info!("Pause command");
-    on_stop(ctx, msg).await.unwrap();
+    on_pause(ctx, msg).await.unwrap();
     Ok(())
 }
 
@@ -31,7 +37,7 @@ pub async fn stop(ctx: &Context, msg: &Message) -> CommandResult {
 #[only_in(guilds)]
 pub async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
     log::info!("Leave command");
-    on_stop(ctx, msg).await.unwrap();
+    on_pause(ctx, msg).await.unwrap();
     on_leave(ctx, msg).await.unwrap();
     Ok(())
 }

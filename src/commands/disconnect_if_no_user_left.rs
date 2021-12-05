@@ -6,14 +6,14 @@ use serenity::async_trait;
 
 use songbird::{EventContext, Songbird};
 
-pub struct DisconnectHandler {
+pub struct DisconnectIfNoUsers {
     manager: Arc<Songbird>,
     guild: Guild,
     ctx: Context,
     connected_to: ChannelId,
 }
 
-impl DisconnectHandler {
+impl DisconnectIfNoUsers {
     pub fn new(manager: Arc<Songbird>, guild: Guild, ctx: Context, connected_to: ChannelId) -> Self { Self { manager, guild, ctx, connected_to } }
 
     async fn disconnect_if_no_users(&self){
@@ -38,8 +38,8 @@ impl DisconnectHandler {
 }
 
 #[async_trait]
-impl songbird::EventHandler for DisconnectHandler{
-    async fn act(&self, ctx: &EventContext<'_>) -> Option<songbird::Event> {
+impl songbird::EventHandler for DisconnectIfNoUsers{
+    async fn act(&self, _: &EventContext<'_>) -> Option<songbird::Event> {
         log::info!("Checking if no users left");
         self.disconnect_if_no_users().await;
         None

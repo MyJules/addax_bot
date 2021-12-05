@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use serenity::framework::standard::Args;
-use songbird::create_player;
+use songbird::{create_player, TrackEvent};
 use songbird::driver::Bitrate;
 use songbird::input::{Input, Restartable};
 use std::time::Duration;
@@ -8,7 +10,8 @@ use serenity::framework::standard::CommandResult;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-use crate::commands::disconnect_handler::DisconnectHandler;
+use crate::commands::disconnect_if_no_user_left::DisconnectIfNoUsers;
+use crate::commands::disconnect_if_queue_empty::DisconnectIfPlayerQueueEmpty;
 
 pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guid = msg.guild(&ctx.cache).await.unwrap();
@@ -30,7 +33,7 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     let manager = songbird::get(ctx).await
         .expect("Songbird Voice client placed in at initialization!!!").clone();
     let (handler_lock, is_connected) = manager.join(guild_id, connect_to).await;
-
+    
     if let Ok(_) = is_connected {
         let mut handler = handler_lock.lock().await;
 
@@ -61,7 +64,7 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
         
         let is_url = arg.starts_with("http");
 
-        let resolved_src = match is_url{
+        let resolved_src = match is_url {
             true => Restartable::ytdl(arg, true).await,
             false => Restartable::ytdl_search(arg, true).await,
         };
@@ -75,14 +78,22 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
             }
         };
 
-        let (mut audio, audio_handler) = create_player(input);
-        audio.set_volume(0.5);
+        let (mut track, _) = create_player(input);
+        track.set_volume(0.5);
         handler.set_bitrate(Bitrate::Max);
-        handler.play(audio);
-        
+        handler.enqueue(track);
+        let track_queue = handler.queue().clone();
+
+        log::info!("Started playing song");
+
         handler.add_global_event(
             songbird::Event::Periodic(Duration::from_millis(3000), None),
-            DisconnectHandler::new(manager, guid, ctx.clone(), connect_to),
+            DisconnectIfNoUsers::new(manager.clone(), guid, ctx.clone(), connect_to),
+        );
+
+        handler.add_global_event(
+            songbird::Event::Track(TrackEvent::End), 
+            DisconnectIfPlayerQueueEmpty::new(manager.clone(), track_queue.clone(), guild_id),
         );
     }
 
@@ -90,7 +101,29 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     Ok(())
 }
 
-pub async fn on_stop(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn on_skip(ctx: &Context, msg: &Message) -> CommandResult {
+    let guild = msg.guild(&ctx.cache).await.unwrap();
+    let guild_id = guild.id;
+
+    let manager = songbird::get(ctx)
+        .await
+        .expect("Songbird Voice client placed in at initialization.")
+        .clone();
+
+    if let Some(handler_lock) = manager.get(guild_id) {
+        let handler = handler_lock.lock().await;
+        let queue = handler.queue();
+        let _ = queue.skip();
+
+        log::info!("Song skipped to: {} in queue.", queue.len());
+    } else {
+        log::warn!("Bot not in a voice channel");
+    }
+
+    Ok(())
+}
+
+pub async fn on_pause(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild(&ctx.cache).await.unwrap().id;
 
     let manager = songbird::get(ctx).await
@@ -98,8 +131,8 @@ pub async fn on_stop(ctx: &Context, msg: &Message) -> CommandResult {
 
     let handler_lock = manager.get(guild_id).unwrap();
 
-    let mut handler = handler_lock.lock().await;
-    handler.stop();
+    let handler = handler_lock.lock().await;
+    handler.queue().pause().unwrap();
 
     log::info!("Stopping audio playback");
     Ok(())
@@ -120,7 +153,7 @@ pub async fn on_leave(ctx: &Context, msg: &Message) -> CommandResult {
         }
         log::info!("Bot left channel");
     }else{
-        log::warn!("Bot is not in the voice channel");
+        log::warn!("Bot not in the voice channel");
     }
 
     Ok(())

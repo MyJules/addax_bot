@@ -18,7 +18,7 @@ use commands::player::*;
 use songbird::{SerenityInit};
 
 #[group]
-#[commands(play, stop, leave)]
+#[commands(play, skip, pause, leave)]
 struct General;
 
 struct Handler;
@@ -44,7 +44,6 @@ async fn main() {
 
     let token = env::var("DISCORD_TOKEN")
         .expect("Expected a token in the environment");
-
 
     // Login with a bot token from the environment
     let mut client = Client::builder(token)
