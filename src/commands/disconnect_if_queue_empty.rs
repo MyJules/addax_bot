@@ -4,7 +4,7 @@ use serenity::{model::prelude::*};
 use serenity::async_trait;
 
 use songbird::tracks::TrackQueue;
-use songbird::{EventContext, Songbird, Call};
+use songbird::{EventContext, Songbird};
 
 pub struct DisconnectIfPlayerQueueEmpty{
     manager: Arc<Songbird>,

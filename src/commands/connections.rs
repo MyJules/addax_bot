@@ -1,19 +1,17 @@
-use std::sync::Arc;
-
-use serenity::framework::standard::Args;
-use songbird::{create_player, TrackEvent};
-use songbird::driver::Bitrate;
-use songbird::input::{Input, Restartable};
 use std::time::Duration;
+use songbird::driver::Bitrate;
+use serenity::framework::standard::{Args};
+use songbird::{create_player, TrackEvent};
+use songbird::input::{Input, Restartable};
 
-use serenity::framework::standard::CommandResult;
-use serenity::model::prelude::*;
 use serenity::prelude::*;
+use serenity::model::prelude::*;
+use serenity::framework::standard::CommandResult;
 
 use crate::commands::disconnect_if_no_user_left::DisconnectIfNoUsers;
 use crate::commands::disconnect_if_queue_empty::DisconnectIfPlayerQueueEmpty;
 
-pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+pub async fn bot_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guid = msg.guild(&ctx.cache).await.unwrap();
     let guild_id = guid.id;
 
@@ -35,13 +33,11 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     let (handler_lock, is_connected) = manager.join(guild_id, connect_to).await;
     
     if let Ok(_) = is_connected {
-        let mut handler = handler_lock.lock().await;
-
         //parse args
         let args = match args.len() {
             0 => {
-                log::warn!("Zero arguments in play command");
-                Err("Please give a url or name of the song")
+                resume_play(ctx, msg).await.unwrap();
+                Err("Zero arguments")
             },
             1 => {
                 log::info!("Play command: {}", args.message());
@@ -57,7 +53,6 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
         let arg = match args {
             Ok(v) => v.trim().to_string(),
             Err(e) => {
-              let _rep = msg.reply(ctx, &format!("{:?}", e)).await;
               return Ok(());
             }
         };
@@ -77,20 +72,21 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
               return Ok(());
             }
         };
-
+        
+        let mut handler = handler_lock.lock().await;
         let (mut track, _) = create_player(input);
         track.set_volume(0.5);
         handler.set_bitrate(Bitrate::Max);
         handler.enqueue(track);
+        log::info!("Started playing song");
+        
         let track_queue = handler.queue().clone();
 
-        log::info!("Started playing song");
-
         handler.add_global_event(
-            songbird::Event::Periodic(Duration::from_millis(3000), None),
-            DisconnectIfNoUsers::new(manager.clone(), guid, ctx.clone(), connect_to),
+            songbird::Event::Periodic(Duration::from_secs(3), None),
+            DisconnectIfNoUsers::new(manager.clone(), guid, ctx.clone(), track_queue.clone(), connect_to),
         );
-
+        
         handler.add_global_event(
             songbird::Event::Track(TrackEvent::End), 
             DisconnectIfPlayerQueueEmpty::new(manager.clone(), track_queue.clone(), guild_id),
@@ -101,7 +97,35 @@ pub async fn on_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRes
     Ok(())
 }
 
-pub async fn on_skip(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn resume_play(ctx: &Context, msg: &Message) -> CommandResult {
+    let guild_id = msg.guild(&ctx.cache).await.unwrap().id;
+    
+    let manager = songbird::get(ctx).await
+        .expect("Songbird Voice client placed in at initialization!!!").clone();
+    
+    if let Some(handler_lock) = manager.get(guild_id) {
+        let handler = handler_lock.lock().await;
+    
+        if handler.queue().is_empty() {
+            log::warn!("No tracks in playlist");
+            let _ = msg.channel_id.say(&ctx.http, "No tracks in playlist yet").await;
+            return Ok(());
+        }
+
+        log::info!("Resuming track");
+        let _ = match handler.queue().resume() {
+            Ok(handler) => handler,
+            Err(error) => log::error!("Resume error: {}", error),
+        };
+        
+    } else {
+        log::warn!("Bot not in a voice channel");
+    }
+
+    Ok(())
+}
+
+pub async fn bot_skip(ctx: &Context, msg: &Message) -> CommandResult {
     let guild = msg.guild(&ctx.cache).await.unwrap();
     let guild_id = guild.id;
 
@@ -123,7 +147,22 @@ pub async fn on_skip(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-pub async fn on_pause(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn bot_stop(ctx: &Context, msg: &Message) -> CommandResult {
+    let guild_id = msg.guild(&ctx.cache).await.unwrap().id;
+
+    let manager = songbird::get(ctx).await
+        .expect("Songbird Voice client placed in at initialization!!!").clone();
+
+    let handler_lock = manager.get(guild_id).unwrap();
+
+    let handler = handler_lock.lock().await;
+    handler.queue().stop();
+
+    log::info!("Stopping audio playback");
+    Ok(())
+}
+
+pub async fn bot_pause(ctx: &Context, msg: &Message) -> CommandResult {
     let guild_id = msg.guild(&ctx.cache).await.unwrap().id;
 
     let manager = songbird::get(ctx).await
@@ -138,7 +177,7 @@ pub async fn on_pause(ctx: &Context, msg: &Message) -> CommandResult {
     Ok(())
 }
 
-pub async fn on_leave(ctx: &Context, msg: &Message) -> CommandResult {
+pub async fn bot_leave(ctx: &Context, msg: &Message) -> CommandResult {
     let guild = msg.guild(&ctx.cache).await.unwrap();
     let guild_id = guild.id;
 

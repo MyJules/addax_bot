@@ -4,17 +4,19 @@ use serenity::model::prelude::*;
 use serenity::prelude::*;
 use serenity::async_trait;
 
+use songbird::tracks::TrackQueue;
 use songbird::{EventContext, Songbird};
 
 pub struct DisconnectIfNoUsers {
     manager: Arc<Songbird>,
     guild: Guild,
     ctx: Context,
+    queue: TrackQueue,
     connected_to: ChannelId,
 }
 
 impl DisconnectIfNoUsers {
-    pub fn new(manager: Arc<Songbird>, guild: Guild, ctx: Context, connected_to: ChannelId) -> Self { Self { manager, guild, ctx, connected_to } }
+    pub fn new(manager: Arc<Songbird>, guild: Guild, ctx: Context, queue: TrackQueue, connected_to: ChannelId) -> Self { Self { manager, guild, ctx, queue, connected_to } }
 
     async fn disconnect_if_no_users(&self){
         let should_disconnect: bool = match self.manager.get(self.guild.id) {
@@ -31,6 +33,7 @@ impl DisconnectIfNoUsers {
         };
 
         if should_disconnect {
+            self.queue.stop();
             let _dc = self.manager.leave(self.guild.id).await;
             log::info!("Discord bot disconnected");
         }
