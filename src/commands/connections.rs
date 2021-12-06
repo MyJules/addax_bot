@@ -52,7 +52,7 @@ pub async fn bot_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
 
         let arg = match args {
             Ok(v) => v.trim().to_string(),
-            Err(e) => {
+            Err(_) => {
               return Ok(());
             }
         };
@@ -118,6 +118,7 @@ pub async fn resume_play(ctx: &Context, msg: &Message) -> CommandResult {
             Err(error) => log::error!("Resume error: {}", error),
         };
         
+        log::info!("Bot resumed playing song");
     } else {
         log::warn!("Bot not in a voice channel");
     }
@@ -141,7 +142,7 @@ pub async fn bot_skip(ctx: &Context, msg: &Message) -> CommandResult {
 
         log::info!("Song skipped to: {} in queue.", queue.len());
     } else {
-        log::warn!("Bot not in a voice channel");
+        log::warn!("Bot not in the voice channel");
     }
 
     Ok(())
@@ -153,12 +154,14 @@ pub async fn bot_stop(ctx: &Context, msg: &Message) -> CommandResult {
     let manager = songbird::get(ctx).await
         .expect("Songbird Voice client placed in at initialization!!!").clone();
 
-    let handler_lock = manager.get(guild_id).unwrap();
+    if let Some(handler_lock) = manager.get(guild_id) {
+        let handler = handler_lock.lock().await;
+        handler.queue().stop();
 
-    let handler = handler_lock.lock().await;
-    handler.queue().stop();
-
-    log::info!("Stopping audio playback");
+        log::info!("Stopping audio playback");
+    }else {
+        log::warn!("Bot not in the voice channel");
+    }
     Ok(())
 }
 
@@ -168,12 +171,14 @@ pub async fn bot_pause(ctx: &Context, msg: &Message) -> CommandResult {
     let manager = songbird::get(ctx).await
         .expect("Songbird Voice client placed in at initialization!!!").clone();
 
-    let handler_lock = manager.get(guild_id).unwrap();
+    if let Some(handler_lock) = manager.get(guild_id) {
+        let handler = handler_lock.lock().await;
+        handler.queue().pause().unwrap();
 
-    let handler = handler_lock.lock().await;
-    handler.queue().pause().unwrap();
-
-    log::info!("Stopping audio playback");
+        log::info!("Stopping audio playback");
+    }else{
+        log::warn!("Bot not in the voice channel");
+    }
     Ok(())
 }
 
@@ -184,9 +189,7 @@ pub async fn bot_leave(ctx: &Context, msg: &Message) -> CommandResult {
     let manager = songbird::get(ctx).await
         .expect("Songbird Voice client placed in at initialization.").clone();
 
-    let has_handler = manager.get(guild_id).is_some();
-
-    if has_handler {
+    if let Some(_) = manager.get(guild_id) {
         if let Err(e) = manager.leave(guild_id).await {
             log::error!("Error disconnecting from voice channel: {:?}", e);
         }
