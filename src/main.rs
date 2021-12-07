@@ -3,7 +3,6 @@ mod commands;
 use std::env;
 
 use simplelog::*;
-use simplelog::{ColorChoice, Config, TerminalMode};
 use log::LevelFilter;
 
 use serenity::async_trait;

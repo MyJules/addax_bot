@@ -1,6 +1,7 @@
 use std::time::Duration;
 use songbird::driver::Bitrate;
 use serenity::framework::standard::{Args};
+use songbird::tracks::{PlayMode, TrackHandle};
 use songbird::{create_player, TrackEvent};
 use songbird::input::{Input, Restartable};
 
@@ -28,34 +29,36 @@ pub async fn bot_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
         }
     };
 
+    //parse args
+    let args = match args.len() {
+        0 => {
+            resume_play(ctx, msg).await.unwrap();
+            Err("Zero arguments")
+        },
+        1 => {
+            log::info!("Play command: {}", args.message());
+            args.single::<String>().map_err(|_| "Please give a url or name of the song")
+        },
+        _ => Ok(args.iter::<String>().fold(String::new(), |mut a, b| {
+            a.push(' ');
+            a.push_str(&b.unwrap());
+            a
+        })),
+    };
+
+    let arg = match args {
+        Ok(v) => v.trim().to_string(),
+        Err(_) => {
+        return Ok(());
+        }
+    };
+
+    //join
     let manager = songbird::get(ctx).await
         .expect("Songbird Voice client placed in at initialization!!!").clone();
     let (handler_lock, is_connected) = manager.join(guild_id, connect_to).await;
     
     if let Ok(_) = is_connected {
-        //parse args
-        let args = match args.len() {
-            0 => {
-                resume_play(ctx, msg).await.unwrap();
-                Err("Zero arguments")
-            },
-            1 => {
-                log::info!("Play command: {}", args.message());
-                args.single::<String>().map_err(|_| "Please give a url or name of the song")
-            },
-            _ => Ok(args.iter::<String>().fold(String::new(), |mut a, b| {
-                a.push(' ');
-                a.push_str(&b.unwrap());
-                a
-            })),
-        };
-
-        let arg = match args {
-            Ok(v) => v.trim().to_string(),
-            Err(_) => {
-              return Ok(());
-            }
-        };
         
         let is_url = arg.starts_with("http");
 
@@ -108,7 +111,7 @@ pub async fn resume_play(ctx: &Context, msg: &Message) -> CommandResult {
     
         if handler.queue().is_empty() {
             log::warn!("No tracks in playlist");
-            let _ = msg.channel_id.say(&ctx.http, "No tracks in playlist yet").await;
+            let _ = msg.channel_id.say(&ctx.http, "Sonya have nothing to sing.").await;
             return Ok(());
         }
 
@@ -120,7 +123,8 @@ pub async fn resume_play(ctx: &Context, msg: &Message) -> CommandResult {
         
         log::info!("Bot resumed playing song");
     } else {
-        log::warn!("Bot not in a voice channel");
+        msg.channel_id.say(&ctx.http, "Sonya have nothing to sing.").await.unwrap();
+        log::warn!("Bot not in the voice channel");
     }
 
     Ok(())
@@ -142,26 +146,10 @@ pub async fn bot_skip(ctx: &Context, msg: &Message) -> CommandResult {
 
         log::info!("Song skipped to: {} in queue.", queue.len());
     } else {
+        msg.channel_id.say(&ctx.http, "Sonya not in the voice channel.").await.unwrap();
         log::warn!("Bot not in the voice channel");
     }
 
-    Ok(())
-}
-
-pub async fn bot_stop(ctx: &Context, msg: &Message) -> CommandResult {
-    let guild_id = msg.guild(&ctx.cache).await.unwrap().id;
-
-    let manager = songbird::get(ctx).await
-        .expect("Songbird Voice client placed in at initialization!!!").clone();
-
-    if let Some(handler_lock) = manager.get(guild_id) {
-        let handler = handler_lock.lock().await;
-        handler.queue().stop();
-
-        log::info!("Stopping audio playback");
-    }else {
-        log::warn!("Bot not in the voice channel");
-    }
     Ok(())
 }
 
@@ -173,10 +161,25 @@ pub async fn bot_pause(ctx: &Context, msg: &Message) -> CommandResult {
 
     if let Some(handler_lock) = manager.get(guild_id) {
         let handler = handler_lock.lock().await;
-        handler.queue().pause().unwrap();
+        
+        if let Some(track) = handler.queue().current(){
+            let track_state = track.get_info().await.unwrap();
+        
+            match track_state.playing {
+                PlayMode::Play => handler.queue().pause().unwrap(),
+                PlayMode::Pause => {
+                    msg.channel_id.say(&ctx.http, "Sonya is already waiting for you to continue listening.").await.unwrap();
+                    ()
+                },
+                _ => (),
+            }
+        }else{
+            msg.channel_id.say(&ctx.http, "Sonya not in the voice channel.").await.unwrap();
+        }
 
         log::info!("Stopping audio playback");
     }else{
+        msg.channel_id.say(&ctx.http, "Sonya not in the voice channel.").await.unwrap();
         log::warn!("Bot not in the voice channel");
     }
     Ok(())
@@ -188,13 +191,16 @@ pub async fn bot_leave(ctx: &Context, msg: &Message) -> CommandResult {
 
     let manager = songbird::get(ctx).await
         .expect("Songbird Voice client placed in at initialization.").clone();
-
-    if let Some(_) = manager.get(guild_id) {
+    
+    if let Some(handler_lock) = manager.get(guild_id) {
         if let Err(e) = manager.leave(guild_id).await {
             log::error!("Error disconnecting from voice channel: {:?}", e);
         }
+        let handler = handler_lock.lock().await;
+        handler.queue().stop();
         log::info!("Bot left channel");
     }else{
+        msg.channel_id.say(&ctx.http, "Sonya not in the voice channel.").await.unwrap();
         log::warn!("Bot not in the voice channel");
     }
 

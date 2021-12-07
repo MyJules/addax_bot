@@ -3,7 +3,7 @@ use serenity::framework::standard::{macros::command, CommandResult};
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-use crate::commands::connections::{bot_play, bot_leave, bot_skip, bot_pause, bot_stop};
+use crate::commands::connections::{bot_play, bot_leave, bot_skip, bot_pause};
 
 #[command]
 #[aliases("p")]
@@ -37,7 +37,6 @@ pub async fn pause(ctx: &Context, msg: &Message) -> CommandResult {
 #[only_in(guilds)]
 pub async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
     log::info!("Leave command");
-    bot_stop(ctx, msg).await.unwrap();
     bot_leave(ctx, msg).await.unwrap();
     Ok(())
 }
