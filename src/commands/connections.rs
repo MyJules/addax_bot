@@ -1,7 +1,7 @@
 use std::time::Duration;
 use songbird::driver::Bitrate;
 use serenity::framework::standard::{Args};
-use songbird::tracks::{PlayMode, TrackHandle};
+use songbird::tracks::{PlayMode};
 use songbird::{create_player, TrackEvent};
 use songbird::input::{Input, Restartable};
 
