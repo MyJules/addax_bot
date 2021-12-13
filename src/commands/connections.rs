@@ -193,7 +193,7 @@ pub async fn bot_leave(ctx: &Context, msg: &Message) -> CommandResult {
         .expect("Songbird Voice client placed in at initialization.").clone();
     
     if let Some(handler_lock) = manager.get(guild_id) {
-        if let Err(e) = manager.leave(guild_id).await {
+        if let Err(e) = manager.remove(guild_id).await {
             log::error!("Error disconnecting from voice channel: {:?}", e);
         }
         let handler = handler_lock.lock().await;

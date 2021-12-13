@@ -18,7 +18,7 @@ use songbird::{SerenityInit};
 
 #[group]
 #[commands(play, skip, pause, leave)]
-struct General;
+struct AudioPlayer;
 
 struct Handler;
 
@@ -39,7 +39,7 @@ async fn main() {
 
     let framework = StandardFramework::new()
         .configure(|c| c.prefix("'"))
-        .group(&GENERAL_GROUP);
+        .group(&AUDIOPLAYER_GROUP);
 
     let token = env::var("DISCORD_TOKEN")
         .expect("Expected a token in the environment");
