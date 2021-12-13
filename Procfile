@@ -1,1 +1,1 @@
-web: ./target/release/addax_bot
+worker: ./target/release/addax_bot
