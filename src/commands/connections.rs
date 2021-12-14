@@ -206,3 +206,11 @@ pub async fn bot_leave(ctx: &Context, msg: &Message) -> CommandResult {
 
     Ok(())
 }
+
+pub async fn bot_print_help(ctx: &Context, msg: &Message) -> CommandResult {
+    msg.channel_id.say(&ctx.http,
+        "Print help!!!"
+    ).await.unwrap();
+
+    Ok(())
+}

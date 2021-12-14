@@ -17,7 +17,7 @@ use commands::player::*;
 use songbird::{SerenityInit};
 
 #[group]
-#[commands(play, skip, pause, leave)]
+#[commands(play, skip, pause, leave, help)]
 struct AudioPlayer;
 
 struct Handler;

@@ -34,7 +34,7 @@ impl DisconnectIfNoUsers {
 
         if should_disconnect {
             self.queue.stop();
-            let _dc = self.manager.leave(self.guild.id).await;
+            let _dc = self.manager.remove(self.guild.id).await;
             log::info!("Discord bot disconnected");
         }
     }

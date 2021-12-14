@@ -18,7 +18,7 @@ impl DisconnectIfPlayerQueueEmpty{
     async fn disconnect_if_queue_empty(&self, ctx: &EventContext<'_>){
         if let EventContext::Track(&[(_, _)]) = ctx{
             if self.queue.is_empty() {
-                let _dc = self.manager.leave(self.guild_id).await;
+                let _dc = self.manager.remove(self.guild_id).await;
                 log::info!("Discord bot disconnected");
             }
         }        
