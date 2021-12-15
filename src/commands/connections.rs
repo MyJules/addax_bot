@@ -24,7 +24,7 @@ pub async fn bot_play(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
         Some(channel) => channel,
         None => {
             log::warn!("User: {}; Is not in the voice channel", msg.author.name);
-            msg.channel_id.say(&ctx.http, format!("{} please enter the voice channel so i can sing to you", msg.author.name)).await.unwrap();
+            msg.channel_id.say(&ctx.http, format!("{} please enter the voice channel so I can sing to you.", msg.author.name)).await.unwrap();
             return Ok(());
         }
     };
